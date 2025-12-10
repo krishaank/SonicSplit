@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+.DS_Store
+output_stems/
+temp_input.wav
+separated_stem.wav
+ffmpeg.exe
+ffprobe.exe
+*.mp3
+*.wav
