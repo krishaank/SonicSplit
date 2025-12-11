@@ -2,6 +2,8 @@ venv/
 __pycache__/
 .DS_Store
 output_stems/
+pretrained_models/
+temp_input.mp3
 temp_input.wav
 separated_stem.wav
 ffmpeg.exe
