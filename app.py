@@ -62,13 +62,12 @@ def split_audio(file_path, stem_count):
     filename = os.path.splitext(os.path.basename(file_path))[0]
     base_path = os.path.join(output_dir, filename)
     
-    # Return a dictionary of all possible files
     return {
         "vocals": os.path.join(base_path, "vocals.wav"),
-        "accompaniment": os.path.join(base_path, "accompaniment.wav"), # Only exists in 2stems
-        "drums": os.path.join(base_path, "drums.wav"), # Only exists in 4stems
-        "bass": os.path.join(base_path, "bass.wav"),   # Only exists in 4stems
-        "other": os.path.join(base_path, "other.wav")   # Only exists in 4stems
+        "accompaniment": os.path.join(base_path, "accompaniment.wav"), 
+        "drums": os.path.join(base_path, "drums.wav"),
+        "bass": os.path.join(base_path, "bass.wav"),
+        "other": os.path.join(base_path, "other.wav")
     }
 
 # --- SIDEBAR ---
@@ -76,7 +75,6 @@ with st.sidebar:
     st.markdown("""<div style="text-align: center; margin-bottom: 2rem;"><div style="font-size: 3.5rem;">🎛️</div><h2 style="margin: 0;">SonicSplit</h2></div>""", unsafe_allow_html=True)
     st.markdown("### ⚙️ Studio Settings")
     
-    # UPDATED OPTIONS
     mode = st.radio("Target Stem:", 
         ["🎤 Vocals Only", "🎹 Karaoke (No Vocals)", "🥁 Drums Only", "🎸 Bass Only", "🎹 Other Instruments"]
     )
@@ -125,9 +123,20 @@ else:
 
         with col2:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            # Display pretty label
-            label_map = {"Vocals": "Vocals", "Karaoke": "Instrumental", "Drums": "Drums", "Bass": "Bass", "Other": "Other Instruments"}
-            display_label = next((v for k, v in label_map.items() if k in mode), "Stem")
+            
+            # --- FIXED LABEL DISPLAY LOGIC ---
+            # We explicitly check for Karaoke FIRST to override the word "Vocals"
+            if "Karaoke" in mode:
+                display_label = "Instrumental (Karaoke)"
+            elif "Vocals" in mode:
+                display_label = "Vocals"
+            elif "Drums" in mode:
+                display_label = "Drums"
+            elif "Bass" in mode:
+                display_label = "Bass"
+            else:
+                display_label = "Other Instruments"
+                
             st.markdown(f"### ✨ AI Output: <span style='color:#00d2ff'>{display_label}</span>", unsafe_allow_html=True)
             
             process_btn = st.button("🚀 Process Audio", use_container_width=True)
@@ -153,10 +162,10 @@ else:
                     bar.progress(60)
                     
                     # 3. PICK THE CORRECT FILE
-                    if "Vocals" in mode:
+                    if "Karaoke" in mode:
+                        target_file = stems["accompaniment"]
+                    elif "Vocals" in mode:
                         target_file = stems["vocals"]
-                    elif "Karaoke" in mode:
-                        target_file = stems["accompaniment"] # Only exists in 2stems mode
                     elif "Drums" in mode:
                         target_file = stems["drums"]
                     elif "Bass" in mode:
