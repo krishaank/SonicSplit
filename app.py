@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import shutil
+import gc  # NEW: Garbage Collection to free memory
 import streamlit as st
 import librosa
 import soundfile as sf
@@ -29,10 +30,7 @@ st.set_page_config(
 # --- CSS STYLING ---
 st.markdown("""
 <style>
-    /* 1. FONTS */
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&family=Exo+2:wght@300;600;800&display=swap');
-
-    /* 2. BACKGROUND */
     .stApp {
         background-color: #050505;
         background-image: 
@@ -41,14 +39,10 @@ st.markdown("""
             radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
         font-family: 'Inter', sans-serif;
     }
-
-    /* 3. SIDEBAR */
     section[data-testid="stSidebar"] {
         background-color: rgba(10, 10, 12, 0.9);
         border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
-
-    /* 4. BUTTONS (BRIGHT WHITE TEXT) */
     .stButton>button {
         background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
         color: #FFFFFF !important;
@@ -69,8 +63,6 @@ st.markdown("""
         box-shadow: 0 10px 25px rgba(0, 210, 255, 0.6);
         color: #FFFFFF !important;
     }
-
-    /* 5. UPLOADER */
     [data-testid='stFileUploader'] {
         background-color: rgba(255, 255, 255, 0.02);
         border: 2px dashed rgba(255, 255, 255, 0.1);
@@ -82,16 +74,8 @@ st.markdown("""
         border-color: #00d2ff;
         background-color: rgba(0, 210, 255, 0.05);
     }
-
-    /* 6. TYPOGRAPHY */
-    h1, h2, h3 { 
-        color: white !important; 
-        font-family: 'Orbitron', sans-serif; 
-        letter-spacing: 1px;
-    }
+    h1, h2, h3 { color: white !important; font-family: 'Orbitron', sans-serif; letter-spacing: 1px; }
     p, label, small { color: #a0a0a0 !important; }
-
-    /* 7. HUD METRICS */
     .metric-box {
         background: rgba(0, 0, 0, 0.4);
         border: 1px solid rgba(0, 210, 255, 0.2);
@@ -101,23 +85,8 @@ st.markdown("""
         text-align: center;
         margin-bottom: 15px;
     }
-    .metric-label { 
-        font-size: 0.85rem; 
-        color: #00d2ff; 
-        letter-spacing: 3px; 
-        text-transform: uppercase; 
-        margin-bottom: 8px; 
-        font-weight: 600;
-    }
-    .metric-value { 
-        font-size: 2.5rem; 
-        font-family: 'Exo 2', sans-serif;
-        font-weight: 800;
-        color: white;
-        text-shadow: 0 0 20px rgba(0, 210, 255, 0.8);
-    }
-    
-    /* 8. MAIN TITLE */
+    .metric-label { font-size: 0.85rem; color: #00d2ff; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+    .metric-value { font-size: 2.5rem; font-family: 'Exo 2', sans-serif; font-weight: 800; color: white; text-shadow: 0 0 20px rgba(0, 210, 255, 0.8); }
     .main-title {
         font-size: 4rem;
         font-weight: 900;
@@ -131,14 +100,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- HELPER 1: SMART AI SWITCHER ---
+# --- HELPER 1: CACHED MODEL LOADING (CRITICAL FIX) ---
+# Using cache_resource ensures the heavy model is loaded only once and stays in memory
+# preventing crashes on repeated clicks.
+@st.cache_resource
+def get_separator(stem_count):
+    return Separator(f'spleeter:{stem_count}stems', multiprocess=False)
+
 def split_audio(file_path, stem_count):
-    model_name = f'spleeter:{stem_count}stems'
-    separator = Separator(model_name, multiprocess=False)
+    # Retrieve cached model
+    separator = get_separator(stem_count)
+    
     output_dir = "output_stems"
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
+    
+    # Force garbage collection before heavy lift
+    gc.collect()
+    
     separator.separate_to_file(file_path, output_dir)
+    
+    # Force garbage collection after heavy lift
+    gc.collect()
+    
     filename = os.path.splitext(os.path.basename(file_path))[0]
     base_path = os.path.join(output_dir, filename)
     return {
@@ -188,10 +172,15 @@ def analyze_track(file_path):
 
 # --- HELPER 4: OPTIMIZED INTERACTIVE VISUALIZER ---
 def plot_interactive_spectrogram(file_path, title="Audio Analysis"):
+    # Clear memory before plotting
+    gc.collect()
+    
     y, sr = librosa.load(file_path, sr=None)
     stft_matrix = librosa.stft(y, hop_length=1024)
     D = librosa.amplitude_to_db(np.abs(stft_matrix), ref=np.max)
-    max_width = 3000
+    
+    # Aggressive downsampling for Cloud stability
+    max_width = 1500 # Reduced from 3000 to save RAM
     if D.shape[1] > max_width:
         step = int(np.ceil(D.shape[1] / max_width))
         D = D[:, ::step]
@@ -258,7 +247,6 @@ else:
 
         # --- LEFT: ORIGINAL ---
         with col1:
-            # REMOVED GLASS CARD WRAPPER - CLEAN TEXT MODE
             st.markdown("### 🎧 INPUT SOURCE")
             st.audio(uploaded_file, format='audio/wav')
             
@@ -266,13 +254,15 @@ else:
                 with open(temp_filename, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 time.sleep(0.5)
-                fig = plot_interactive_spectrogram(temp_filename, "SOURCE SPECTRUM")
-                st.plotly_chart(fig, use_container_width=True)
+                # Plot Spectrogram (try/except to prevent crash on graph)
+                try:
+                    fig = plot_interactive_spectrogram(temp_filename, "SOURCE SPECTRUM")
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception:
+                    st.warning("Visualizer disabled to save memory.")
 
         # --- RIGHT: OUTPUT ---
         with col2:
-            # REMOVED GLASS CARD WRAPPER - CLEAN TEXT MODE
-            
             if "Karaoke" in mode: display_label = "INSTRUMENTAL"
             elif "Vocals" in mode: display_label = "VOCALS"
             elif "Drums" in mode: display_label = "DRUMS"
@@ -299,6 +289,7 @@ else:
                         stems_needed = 2
                         progress_text.text("🧠 ACTIVATING 2-STEM NEURAL NET...")
                     
+                    # Run Separation
                     stems = split_audio(temp_filename, stems_needed)
                     bar.progress(60)
                     
@@ -328,11 +319,16 @@ else:
                     st.audio(final_file, format='audio/wav')
                     
                     with st.expander("👁️ OUTPUT SPECTRUM", expanded=True):
-                        fig_out = plot_interactive_spectrogram(final_file, "OUTPUT ANALYSIS")
-                        st.plotly_chart(fig_out, use_container_width=True)
+                        try:
+                            fig_out = plot_interactive_spectrogram(final_file, "OUTPUT ANALYSIS")
+                            st.plotly_chart(fig_out, use_container_width=True)
+                        except Exception:
+                            st.warning("Visualizer disabled to save memory.")
                     
                     with open(final_file, "rb") as f:
                         st.download_button(label="⬇️ EXPORT STEM", data=f, file_name=f"{display_label}_Processed.wav", mime="audio/wav", use_container_width=True)
-                        
+                
+                except MemoryError:
+                    st.error("⚠️ OUT OF MEMORY: The song is too long for the free server. Try a shorter clip (under 3 mins).")
                 except Exception as e:
                     st.error(f"SYSTEM ERROR: {e}")
