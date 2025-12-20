@@ -2,5 +2,6 @@ streamlit
 spleeter
 librosa
 soundfile
-numpy
+numpy<2.0.0
 plotly
+setuptools<70.0.0
