@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import shutil
-import gc  # NEW: Garbage Collection to free memory
+import gc
 import streamlit as st
 import librosa
 import soundfile as sf
@@ -100,31 +100,35 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- HELPER 1: CACHED MODEL LOADING (CRITICAL FIX) ---
-# Using cache_resource ensures the heavy model is loaded only once and stays in memory
-# preventing crashes on repeated clicks.
+# --- HELPER 1: CACHED MODEL ---
 @st.cache_resource
 def get_separator(stem_count):
     return Separator(f'spleeter:{stem_count}stems', multiprocess=False)
 
+# --- HELPER 2: TRIMMED AUDIO SPLITTER (MEMORY FIX) ---
 def split_audio(file_path, stem_count):
-    # Retrieve cached model
     separator = get_separator(stem_count)
+    
+    # MEMORY FIX: Create a 60s snippet for processing
+    # Spleeter crashes on full songs in Free Tier (1GB RAM)
+    y, sr = librosa.load(file_path, sr=None, duration=60)
+    short_filename = "temp_60s_snippet.wav"
+    sf.write(short_filename, y, sr)
     
     output_dir = "output_stems"
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)
     
-    # Force garbage collection before heavy lift
+    # Separate the SHORT file
+    gc.collect()
+    separator.separate_to_file(short_filename, output_dir)
     gc.collect()
     
-    separator.separate_to_file(file_path, output_dir)
+    # Logic to find the files
+    # Spleeter creates a folder named after the input file
+    base_name = os.path.splitext(short_filename)[0] # "temp_60s_snippet"
+    base_path = os.path.join(output_dir, base_name)
     
-    # Force garbage collection after heavy lift
-    gc.collect()
-    
-    filename = os.path.splitext(os.path.basename(file_path))[0]
-    base_path = os.path.join(output_dir, filename)
     return {
         "vocals": os.path.join(base_path, "vocals.wav"),
         "accompaniment": os.path.join(base_path, "accompaniment.wav"), 
@@ -133,7 +137,7 @@ def split_audio(file_path, stem_count):
         "other": os.path.join(base_path, "other.wav")
     }
 
-# --- HELPER 2: AUDIO EFFECTS ---
+# --- HELPER 3: AUDIO EFFECTS ---
 def apply_audio_effects(input_path, output_path, pitch_steps, speed_rate):
     y, sr = librosa.load(input_path, sr=None)
     if pitch_steps != 0:
@@ -143,9 +147,9 @@ def apply_audio_effects(input_path, output_path, pitch_steps, speed_rate):
     sf.write(output_path, y, sr)
     return output_path
 
-# --- HELPER 3: MUSIC ANALYSIS ---
+# --- HELPER 4: ANALYSIS ---
 def analyze_track(file_path):
-    y, sr = librosa.load(file_path, sr=None, duration=60)
+    y, sr = librosa.load(file_path, sr=None, duration=30) # Analyze only 30s
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
     bpm = int(round(tempo)) if np.isscalar(tempo) else int(round(tempo[0]))
     
@@ -170,46 +174,31 @@ def analyze_track(file_path):
             best_key = f"{pitches[i]} Minor"
     return bpm, best_key
 
-# --- HELPER 4: OPTIMIZED INTERACTIVE VISUALIZER ---
+# --- HELPER 5: VISUALIZER (INPUT ONLY) ---
 def plot_interactive_spectrogram(file_path, title="Audio Analysis"):
-    # Clear memory before plotting
     gc.collect()
-    
-    y, sr = librosa.load(file_path, sr=None)
+    y, sr = librosa.load(file_path, sr=None, duration=60) # Limit to 60s load
     stft_matrix = librosa.stft(y, hop_length=1024)
     D = librosa.amplitude_to_db(np.abs(stft_matrix), ref=np.max)
     
-    # Aggressive downsampling for Cloud stability
-    max_width = 1500 # Reduced from 3000 to save RAM
+    max_width = 1000 # Aggressive downsampling
     if D.shape[1] > max_width:
         step = int(np.ceil(D.shape[1] / max_width))
         D = D[:, ::step]
     
     fig = go.Figure(data=go.Heatmap(
-        z=D,
-        colorscale='Viridis', 
-        colorbar=dict(title='Intensity (dB)'),
-        hoverongaps=False
+        z=D, colorscale='Viridis', colorbar=dict(title='Intensity (dB)'), hoverongaps=False
     ))
     fig.update_layout(
-        title=title,
-        xaxis_title="Time Frame",
-        yaxis_title="Frequency (Hz)",
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(color="white"),
-        margin=dict(l=0, r=0, t=30, b=0)
+        title=title, xaxis_title="Time", yaxis_title="Hz",
+        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color="white"), margin=dict(l=0, r=0, t=30, b=0)
     )
     return fig
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.markdown("""
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <div style="font-size: 4rem; filter: drop-shadow(0 0 15px rgba(0,210,255,0.6));">⚡</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
+    st.markdown("""<div style="text-align: center; margin-bottom: 2rem;"><div style="font-size: 4rem; filter: drop-shadow(0 0 15px rgba(0,210,255,0.6));">⚡</div></div>""", unsafe_allow_html=True)
     st.markdown("### 🎛️ STUDIO CONTROLS")
     mode = st.radio("Target Stem:", ["🎤 Vocals Only", "🎹 Karaoke (No Vocals)", "🥁 Drums Only", "🎸 Bass Only", "🎹 Other Instruments"])
     st.markdown("---")
@@ -217,6 +206,7 @@ with st.sidebar:
     pitch = st.slider("Key / Pitch", -12, 12, 0, 1)
     speed = st.slider("Tempo / Speed", 0.5, 2.0, 1.0, 0.1)
     st.markdown("---")
+    st.info("ℹ️ **Free Cloud Mode:** Processing limited to first 60s to prevent memory crash.")
 
 # --- MAIN LOGIC ---
 top_section = st.container()
@@ -231,11 +221,7 @@ with bottom_section:
 if uploaded_file is None:
     with top_section:
         st.markdown('<div class="main-title">SONIC SPLIT</div>', unsafe_allow_html=True)
-        st.markdown("""
-            <div style="text-align: center; color: #a0a0a0; font-size: 1.2rem; margin-bottom: 30px;">
-                The Next-Gen AI Audio Separation Engine.
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div style="text-align: center; color: #a0a0a0; font-size: 1.2rem; margin-bottom: 30px;">The Next-Gen AI Audio Separation Engine.</div>""", unsafe_allow_html=True)
 else:
     file_extension = os.path.splitext(uploaded_file.name)[1].lower()
     temp_filename = f"temp_input{file_extension}"
@@ -249,17 +235,15 @@ else:
         with col1:
             st.markdown("### 🎧 INPUT SOURCE")
             st.audio(uploaded_file, format='audio/wav')
-            
             with st.spinner("Analyzing Waveform..."):
                 with open(temp_filename, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 time.sleep(0.5)
-                # Plot Spectrogram (try/except to prevent crash on graph)
                 try:
                     fig = plot_interactive_spectrogram(temp_filename, "SOURCE SPECTRUM")
                     st.plotly_chart(fig, use_container_width=True)
-                except Exception:
-                    st.warning("Visualizer disabled to save memory.")
+                except:
+                    st.warning("Visualizer disabled.")
 
         # --- RIGHT: OUTPUT ---
         with col2:
@@ -271,7 +255,7 @@ else:
                 
             st.markdown(f"### ✨ AI OUTPUT: <span style='color:#00d2ff'>{display_label}</span>", unsafe_allow_html=True)
             
-            process_btn = st.button("INITIALIZE SEPARATION", use_container_width=True)
+            process_btn = st.button("INITIALIZE SEPARATION (60s Demo)", use_container_width=True)
             
             if process_btn:
                 progress_text = st.empty()
@@ -284,12 +268,12 @@ else:
                     
                     if "Drums" in mode or "Bass" in mode or "Other" in mode:
                         stems_needed = 4
-                        progress_text.text("🧠 ACTIVATING 4-STEM NEURAL NET...")
+                        progress_text.text("🧠 ACTIVATING 4-STEM NET (60s Limit)...")
                     else:
                         stems_needed = 2
-                        progress_text.text("🧠 ACTIVATING 2-STEM NEURAL NET...")
+                        progress_text.text("🧠 ACTIVATING 2-STEM NET (60s Limit)...")
                     
-                    # Run Separation
+                    # Run 60s Separation
                     stems = split_audio(temp_filename, stems_needed)
                     bar.progress(60)
                     
@@ -318,17 +302,8 @@ else:
                     
                     st.audio(final_file, format='audio/wav')
                     
-                    with st.expander("👁️ OUTPUT SPECTRUM", expanded=True):
-                        try:
-                            fig_out = plot_interactive_spectrogram(final_file, "OUTPUT ANALYSIS")
-                            st.plotly_chart(fig_out, use_container_width=True)
-                        except Exception:
-                            st.warning("Visualizer disabled to save memory.")
-                    
                     with open(final_file, "rb") as f:
                         st.download_button(label="⬇️ EXPORT STEM", data=f, file_name=f"{display_label}_Processed.wav", mime="audio/wav", use_container_width=True)
-                
-                except MemoryError:
-                    st.error("⚠️ OUT OF MEMORY: The song is too long for the free server. Try a shorter clip (under 3 mins).")
+                        
                 except Exception as e:
                     st.error(f"SYSTEM ERROR: {e}")
