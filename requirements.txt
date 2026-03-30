@@ -5,3 +5,4 @@ soundfile
 numpy<2.0.0
 plotly
 setuptools<70.0.0
+protobuf<=3.20.3
