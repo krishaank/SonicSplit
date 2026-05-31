@@ -1,158 +1,108 @@
-# 🎧 SonicSplit AI Pro
+<div align="center">
+  <h1>🎧 SonicSplit AI Pro</h1>
+  <p><strong>An advanced AI-powered audio separation engine and DSP platform.</strong></p>
+  
+  <a href="https://sonicsplit.streamlit.app/">
+    <img src="https://img.shields.io/badge/Live_Demo-Play_Now-00ffcc?style=for-the-badge&logo=streamlit&logoColor=black" alt="Live Demo" />
+  </a>
+  <br/><br/>
+</div>
 
-**SonicSplit AI Pro** is a web-based audio processing application that allows users to **separate music tracks into individual stems** (Vocals, Drums, Bass, Instrumentals, etc.), apply **audio effects**, and visualize the audio using **interactive spectrograms** — all through an intuitive and futuristic UI built with **Streamlit**.
+**SonicSplit AI Pro** is a cloud-native, web-based audio processing application that empowers users to **decompose musical tracks into individual stems** (Vocals, Drums, Bass, Instrumentals, etc.), apply **digital signal processing (DSP) effects**, and visualize audio through **interactive real-time spectrograms** — all via a sleek, cyberpunk-inspired UI built with Streamlit.
 
-This project combines **AI-powered source separation**, **digital signal processing (DSP)**, and **audio visualization** into a single, easy-to-use application.
-
----
-
-## 🚀 Features
-
-### 🎵 AI Audio Stem Separation
-- Uses **Spleeter** (pre-trained deep learning models) for:
-  - **2-stem separation** (Vocals + Accompaniment)
-  - **4-stem separation** (Vocals, Drums, Bass, Other)
-- Smart logic automatically selects:
-  - **High-quality mode** for vocals/karaoke
-  - **Safe low-memory mode** for drums/bass/other
+By combining **pre-trained deep neural networks**, **DSP**, and **low-latency visualization**, SonicSplit provides an accessible yet powerful environment for audio engineering and analysis.
 
 ---
 
-### 🎚 Audio Effects (DSP)
-- **Pitch shifting** (Key control: −12 to +12 semitones)
-- **Tempo control** (Speed: 0.5× to 2.0×)
-- Effects are applied **after stem extraction** using Librosa
+## 🚀 Live Deployment
+Experience the application live without installing anything:
+👉 **[Launch SonicSplit AI Pro](https://sonicsplit.streamlit.app/)**
 
 ---
 
-### 📊 Audio Analysis
-- **Tempo (BPM) detection**
-- **Musical key detection**
-- Results displayed as clean metric cards in the UI
+## ✨ Key Features
+
+### 🎵 AI-Powered Stem Separation
+- **Dual Neural Network Modes:** Uses **Spleeter** models to handle:
+  - **2-Stem Extraction:** Isolates Vocals vs. Accompaniment for instant karaoke generation.
+  - **4-Stem Extraction:** Decomposes audio into Vocals, Drums, Bass, and Other instruments.
+- **Adaptive Resource Management:** Intelligently downsamples audio (e.g., 44.1kHz to 16kHz) to execute complex separation tasks within strict cloud memory constraints.
+
+### 🎚 DSP Effects Engine
+- **Pitch Shifting:** Adjust track keys from **−12 to +12 semitones** on the fly.
+- **Time Stretching:** Alter tempo/speed smoothly from **0.5× to 2.0×** without affecting pitch.
+- Audio manipulation is powered by the highly optimized `librosa` library.
+
+### 🌈 Interactive Spectrograms & Analysis
+- **Live Visualizations:** Generates frequency-vs-time heatmaps using Librosa STFT and Plotly.
+- **Musical Metrics:** Automatically analyzes and displays **BPM (Tempo)** and **Musical Key** for any uploaded track.
+
+### 🎨 Immersive UI/UX
+- **Cyberpunk Aesthetics:** Built with a dark, neon, glass-morphic design.
+- **Responsive Layout:** Clean sidebar controls and interactive progress indicators.
 
 ---
 
-### 🌈 Interactive Spectrogram Visualization
-- Real-time **frequency vs time heatmap**
-- Built using **Librosa STFT + Plotly**
-- Optimized for low memory usage
+## 🏗️ Architecture & Technologies
 
----
-
-### 🎨 Professional Cyberpunk UI
-- Glass-morphism design
-- Dark neon cyber-theme
-- Responsive layout with sidebar controls
-- Interactive progress indicators & animations
-
----
-
-## 🧠 How the System Works
-
-1. User uploads an audio file  
-2. The system:
-   - Analyzes BPM & key
-   - Chooses 2-stem or 4-stem AI model automatically  
-3. **Spleeter separates the audio**  
-4. Optional **DSP effects** (pitch & speed) are applied  
-5. Output stem is:
-   - Previewed as audio  
-   - Visualized as a spectrogram  
-   - Available for download  
-
----
-
-## 🏗️ Project Architecture
-
-SonicSplit/
-│
-├── app.py # Main Streamlit application
-├── output_stems/ # Temporary AI-generated stems
-├── requirements.txt # Project dependencies
-└── README.md # Project documentation
-
-
----
-
-## 🧰 Technologies Used
-
-| Category | Tools |
+| Layer | Technologies Used |
 |--------|------|
-| Frontend | Streamlit |
-| AI Model | Spleeter |
-| Audio Processing | Librosa, SoundFile |
-| Visualization | Plotly |
-| Numerical Computing | NumPy |
-| Language | Python 3.11 |
+| **Frontend / UI** | Streamlit, HTML/CSS |
+| **AI / Machine Learning** | TensorFlow, Spleeter |
+| **Audio Processing (DSP)** | Librosa, SoundFile |
+| **Data Visualization** | Plotly |
+| **Numerical Computing** | NumPy |
+| **Language** | Python 3.11 |
 
 ---
 
-## ⚙️ Setup (Optional)
+## ⚙️ Local Setup Instructions
 
-This project requires Python 3.10+ and the following libraries:
-- streamlit
-- librosa
-- soundfile
-- numpy
-- plotly
-- spleeter
+If you prefer to run the application locally on your machine:
 
-The application is intended for academic demonstration purposes.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/krishaank/SonicSplit.git
+   cd SonicSplit
+   ```
+
+2. **Install dependencies:**
+   Ensure you have Python 3.10+ installed, then run:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Launch the application:**
+   ```bash
+   streamlit run app.py
+   ```
+
+> **Note:** The first time you process audio, the system will automatically download the required Spleeter pre-trained neural network models.
+
+---
 
 ## 🧪 Supported Audio Formats
-
-- MP3  
-- WAV  
-- M4A  
-- FLAC  
-- OGG  
+* **MP3, WAV, M4A, FLAC, OGG**
 
 ---
 
-## 🛡️ Performance & Stability Optimizations
-
-- Smart sample-rate reduction for heavy AI models  
-- Audio duration limiting for safe and stable processing  
-- Cached AI models using `st.cache_resource` to reduce reload time  
-- Explicit garbage collection for improved memory safety  
-
----
-
-## 🎯 Use Cases
-
-- Music producers & DJs  
-- Karaoke track creation  
-- Audio analysis demonstrations  
-- AI & DSP academic projects  
-- Portfolio and hackathon submissions  
+## 🛡️ Performance Optimizations
+To ensure stable execution on cloud environments with strict limits (like Streamlit Community Cloud):
+- **Smart Sample-Rate Reduction** for heavy AI models.
+- **Audio Duration Limiting** to prevent OOM (Out of Memory) crashes.
+- **Resource Caching** using `@st.cache_resource` to keep neural networks loaded in RAM.
+- **Explicit Garbage Collection** to flush memory safely after processing.
 
 ---
 
-## ⚠️ Disclaimer
-
-This project uses pre-trained AI models and is intended strictly for educational and demonstration purposes.  
-Output quality depends on the input audio, processing limitations, and model constraints.
-
----
-
-## ⭐ Future Enhancements
-
-- Full-length track processing (removal of duration limits)  
-- Custom deep learning model training  
-- Batch audio processing support  
-- Cloud-based deployment  
-- User authentication and profile system  
+## 🎯 Primary Use Cases
+* **Music Producers & DJs:** Instantly isolate vocal acapellas or drum loops for remixing.
+* **Vocalists:** Create high-quality karaoke backing tracks.
+* **Audio Engineers:** Visualize frequency distribution and detect exact track keys.
 
 ---
 
-## 📜 License
+### 👨‍💻 Developed By
+**Krishank Dubey** & **Anjali Sevkani**
 
-This project is open-source and intended for academic use only.
-
----
-
-### 👩‍💻👨‍💻 Developed By
-
-**Krishank Dubey**  
-**Anjali Sevkani**
-
+*Disclaimer: This project uses pre-trained AI models and is intended strictly for educational and demonstration purposes. Output quality depends on the input audio, processing limitations, and model constraints.*
